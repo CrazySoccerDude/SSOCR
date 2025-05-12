@@ -16,8 +16,8 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 0, 1, 1, 1): 9,
     (0, 0, 0, 0, 0, 1, 1): '-'
 }
-H_W_Ratio = 1.5
-THRESHOLD = 35
+H_W_Ratio = 1.8
+THRESHOLD = 50
 arc_tan_theta = 6.0  # 数码管倾斜角度
 
 
@@ -166,8 +166,8 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
 
         # 对1的情况单独识别
         
-        if w < suppose_W / 3:
-            x0 = max(x0 + w - suppose_W, 0)
+        if w < suppose_W / 1.5:
+            x0 = max(x0 + int((w - suppose_W) * 0.8), 0)
             roi = input_img[y0:y1, x0:x1]
             w = roi.shape[1]
         
@@ -207,6 +207,7 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
         digits.append(digit)
 
         # 小数点的识别
+        '''
         if cv2.countNonZero(roi[h - int(3 * width / 4):h, w - int(3 * width / 4):w]) / (9. / 16 * width * width) > 0.65:
             digits.append('.')
             cv2.rectangle(output_img,
@@ -215,7 +216,8 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
             cv2.putText(output_img, 'dot',
                         (x0 + w - int(3 * width / 4), y0 + h - int(3 * width / 4) - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 128, 0), 2)
-
+        '''
+                        
         # Draw bounding box and recognized digit on the output image
         cv2.rectangle(output_img, (x0, y0), (x1, y1), (0, 255, 0), 2)
         cv2.putText(output_img, str(digit), (x0 + 3, y0 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)

@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from ssocr_lib import preprocess, find_digits_positions, recognize_digits_area_method  # Use area method
+from ssocr_lib import preprocess, find_digits_positions, recognize_digits_area_method, recognize_digits_line_method  # Use area method
 
 # Global variables
 ref_point = []
@@ -19,7 +19,7 @@ average_frame_count = 5  # Number of frames to average
 binarization_threshold = 10  # Default threshold for binarization
 
 # Global variable for height-to-width ratio
-H_W_Ratio = 1  # Default ratio
+H_W_Ratio = 4  # Default ratio
 
 
 
@@ -199,8 +199,17 @@ def main():
                 roi_with_boxes = cv2.cvtColor(magnified_roi, cv2.COLOR_GRAY2BGR)  # Convert to BGR for visualization
 
                 # Recognize digits using area method
-                recognized_digits = recognize_digits_area_method(digits_positions, roi_with_boxes, processed_roi)
-                print(f"Recognized Digits: {''.join(map(str, recognized_digits))}")
+                #recognized_digits = recognize_digits_area_method(digits_positions, roi_with_boxes, processed_roi)
+                #print(f"Recognized Digits: {''.join(map(str, recognized_digits))}")
+
+                # Recognize digits using line method and display results
+                try:
+                    line_digits_positions = find_digits_positions(processed_roi.copy(), H_threshold=H_threshold, V_threshold=V_threshold)
+                    line_recognized_digits = recognize_digits_line_method(line_digits_positions, roi_with_boxes, processed_roi)
+                    print(f"Line Method Recognized Digits: {''.join(map(str, line_recognized_digits))}")
+                except AssertionError:
+                    line_recognized_digits = []
+                    print("Line Method: No digits detected.")
 
                 # Display the processed ROI with recognized digits
                 cv2.imshow("Selected ROI", roi_with_boxes)
