@@ -1,12 +1,15 @@
 import cv2
 import numpy as np
-from ssocr_lib import preprocess, find_digits_positions # Added import
+from ssocr_lib import preprocess, find_digits_positions, recognize_digits_line_method  # Import the recognition method
 
 # Global variables
 ref_point = []
 cropping = False
 roi_selected = False
 selected_roi_img = None
+
+
+
 
 def select_roi(event, x, y, flags, param):
     """
@@ -155,7 +158,11 @@ def main():
                     pt2 = (pos[1][0], pos[1][1])
                     cv2.rectangle(roi_with_boxes, pt1, pt2, (0, 255, 0), 1)
 
-                # Display the processed ROI
+                # Recognize digits using line method
+                recognized_digits = recognize_digits_line_method(digits_positions, roi_with_boxes, processed_roi)
+                print(f"Recognized Digits: {''.join(map(str, recognized_digits))}")
+
+                # Display the processed ROI with recognized digits
                 cv2.imshow("Selected ROI", roi_with_boxes)
 
             # Draw the ROI rectangle on the main frame
