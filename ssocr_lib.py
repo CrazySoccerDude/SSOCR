@@ -16,7 +16,7 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 0, 1, 1, 1): 9,
     (0, 0, 0, 0, 0, 1, 1): '-'
 }
-H_W_Ratio = 1.9
+H_W_Ratio = 1.5
 THRESHOLD = 35
 arc_tan_theta = 6.0  # 数码管倾斜角度
 
@@ -64,32 +64,31 @@ def helper_extract(one_d_array, threshold=20):
     return res
 
 
-def find_digits_positions(img, reserved_threshold=20):
-    # cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # digits_positions = []
-    # for c in cnts[1]:
-    #     (x, y, w, h) = cv2.boundingRect(c)
-    #     cv2.rectangle(img, (x, y), (x + w, y + h), (128, 0, 0), 2)
-    #     cv2.imshow('test', img)
-    #     cv2.waitKey(0)
-    #     cv2.destroyWindow('test')
-    #     if w >= reserved_threshold and h >= reserved_threshold:
-    #         digit_cnts.append(c)
-    # if digit_cnts:
-    #     digit_cnts = contours.sort_contours(digit_cnts)[0]
-
+def find_digits_positions(img, H_threshold=20, V_threshold=20):
+    """
+    Use a continuous algorithm to find digit positions in the image.
+    """
     digits_positions = []
-    img_array = np.sum(img, axis=0)
-    horizon_position = helper_extract(img_array, threshold=reserved_threshold)
-    img_array = np.sum(img, axis=1)
-    vertical_position = helper_extract(img_array, threshold=reserved_threshold * 1)
-    # make vertical_position has only one element
-    if len(vertical_position) > 1:
-        vertical_position = [(vertical_position[0][0], vertical_position[len(vertical_position) - 1][1])]
-    for h in horizon_position:
-        for v in vertical_position:
-            digits_positions.append(list(zip(h, v)))
-    assert len(digits_positions) > 0, "Failed to find digits's positions"
+    
+    # Sum pixel intensities along the horizontal axis
+    horizontal_sum = np.sum(img, axis=0)
+    horizontal_regions = helper_extract(horizontal_sum, threshold=H_threshold)
+
+    # Sum pixel intensities along the vertical axis
+    vertical_sum = np.sum(img, axis=1)
+    vertical_regions = helper_extract(vertical_sum, threshold=V_threshold)
+
+    # Ensure vertical regions are continuous
+    if len(vertical_regions) > 1:
+        vertical_regions = [(vertical_regions[0][0], vertical_regions[-1][1])]
+
+    # Combine horizontal and vertical regions to form digit bounding boxes
+    for h_region in horizontal_regions:
+        for v_region in vertical_regions:
+            digits_positions.append([(h_region[0], v_region[0]), (h_region[1], v_region[1])])
+
+    # Ensure digit positions are valid
+    assert len(digits_positions) > 0, "Failed to find digits' positions using continuous algorithm."
 
     return digits_positions
 
@@ -102,29 +101,21 @@ def recognize_digits_area_method(digits_positions, output_img, input_img):
         roi = input_img[y0:y1, x0:x1]
         h, w = roi.shape
         suppose_W = max(1, int(h / H_W_Ratio))
+
         # 对1的情况单独识别
-        if w < suppose_W / 2:
-            x0 = x0 + w - suppose_W
-            w = suppose_W
+        
+        if w < suppose_W / 3:
+            x0 = max(x0 + w - suppose_W, 0)
             roi = input_img[y0:y1, x0:x1]
+            w = roi.shape[1]
+        
         width = (max(int(w * 0.15), 1) + max(int(h * 0.15), 1)) // 2
         dhc = int(width * 0.8)
-        # print('width :', width)
-        # print('dhc :', dhc)
-
         small_delta = int(h / arc_tan_theta) // 4
-        # print('small_delta : ', small_delta)
+        
+        
+        # Define segments for recognition
         segments = [
-            # # version 1
-            # ((w - width, width // 2), (w, (h - dhc) // 2)),
-            # ((w - width - small_delta, (h + dhc) // 2), (w - small_delta, h - width // 2)),
-            # ((width // 2, h - width), (w - width // 2, h)),
-            # ((0, (h + dhc) // 2), (width, h - width // 2)),
-            # ((small_delta, width // 2), (small_delta + width, (h - dhc) // 2)),
-            # ((small_delta, 0), (w, width)),
-            # ((width, (h - dhc) // 2), (w - width, (h + dhc) // 2))
-
-            # # version 2
             ((w - width - small_delta, width // 2), (w, (h - dhc) // 2)),
             ((w - width - 2 * small_delta, (h + dhc) // 2), (w - small_delta, h - width // 2)),
             ((width - small_delta, h - width), (w - width - small_delta, h)),
@@ -133,37 +124,29 @@ def recognize_digits_area_method(digits_positions, output_img, input_img):
             ((small_delta, 0), (w + small_delta, width)),
             ((width - small_delta, (h - dhc) // 2), (w - width - small_delta, (h + dhc) // 2))
         ]
-        # cv2.rectangle(roi, segments[0][0], segments[0][1], (128, 0, 0), 2)
-        # cv2.rectangle(roi, segments[1][0], segments[1][1], (128, 0, 0), 2)
-        # cv2.rectangle(roi, segments[2][0], segments[2][1], (128, 0, 0), 2)
-        # cv2.rectangle(roi, segments[3][0], segments[3][1], (128, 0, 0), 2)
-        # cv2.rectangle(roi, segments[4][0], segments[4][1], (128, 0, 0), 2)
-        # cv2.rectangle(roi, segments[5][0], segments[5][1], (128, 0, 0), 2)
-        # cv2.rectangle(roi, segments[6][0], segments[6][1], (128, 0, 0), 2)
-        # cv2.imshow('i', roi)
-        # cv2.waitKey()
-        # cv2.destroyWindow('i')
+
         on = [0] * len(segments)
 
+        # Visualize the segments for debugging
         for (i, ((xa, ya), (xb, yb))) in enumerate(segments):
             seg_roi = roi[ya:yb, xa:xb]
-            # plt.imshow(seg_roi)
-            # plt.show()
+            cv2.rectangle(output_img[y0:y1, x0:x1], (xa, ya), (xb, yb), (128, 0, 0), 1)  # Draw segment rectangles
             total = cv2.countNonZero(seg_roi)
             area = (xb - xa) * (yb - ya) * 0.9
-            print(total / float(area))
             if total / float(area) > 0.45:
                 on[i] = 1
 
-        # print(on)
-
+        # Recognize the digit based on active segments
         if tuple(on) in DIGITS_LOOKUP.keys():
             digit = DIGITS_LOOKUP[tuple(on)]
         else:
             digit = '*'
+
         digits.append(digit)
-        cv2.rectangle(output_img, (x0, y0), (x1, y1), (0, 128, 0), 2)
-        cv2.putText(output_img, str(digit), (x0 - 10, y0 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 128, 0), 2)
+
+        # Draw bounding box and recognized digit on the output image
+        cv2.rectangle(output_img, (x0, y0), (x1, y1), (0, 255, 0), 2)
+        cv2.putText(output_img, str(digit), (x0 + 3, y0 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
 
     return digits
 
@@ -182,11 +165,13 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
             continue
 
         # 对1的情况单独识别
-        if w < suppose_W / 2:
+        
+        if w < suppose_W / 3:
             x0 = max(x0 + w - suppose_W, 0)
             roi = input_img[y0:y1, x0:x1]
             w = roi.shape[1]
-
+        
+            
         center_y = h // 2
         quater_y_1 = h // 4
         quater_y_3 = quater_y_1 * 3
@@ -205,16 +190,15 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
         ]
         on = [0] * len(segments)
 
+        # Visualize the segments for debugging
         for (i, ((xa, ya), (xb, yb))) in enumerate(segments):
             seg_roi = roi[ya:yb, xa:xb]
-            # plt.imshow(seg_roi, 'gray')
-            # plt.show()
+            cv2.rectangle(output_img[y0:y1, x0:x1], (xa, ya), (xb, yb), (128, 0, 0), 1)  # Draw segment rectangles
             total = cv2.countNonZero(seg_roi)
             area = (xb - xa) * (yb - ya) * 0.9
-            # print('prob: ', total / float(area))
             if total / float(area) > 0.25:
                 on[i] = 1
-        # print('encode: ', on)
+
         if tuple(on) in DIGITS_LOOKUP.keys():
             digit = DIGITS_LOOKUP[tuple(on)]
         else:
@@ -223,7 +207,6 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
         digits.append(digit)
 
         # 小数点的识别
-        # print('dot signal: ',cv2.countNonZero(roi[h - int(3 * width / 4):h, w - int(3 * width / 4):w]) / (9 / 16 * width * width))
         if cv2.countNonZero(roi[h - int(3 * width / 4):h, w - int(3 * width / 4):w]) / (9. / 16 * width * width) > 0.65:
             digits.append('.')
             cv2.rectangle(output_img,
@@ -233,6 +216,8 @@ def recognize_digits_line_method(digits_positions, output_img, input_img):
                         (x0 + w - int(3 * width / 4), y0 + h - int(3 * width / 4) - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 128, 0), 2)
 
-        cv2.rectangle(output_img, (x0, y0), (x1, y1), (0, 128, 0), 2)
-        cv2.putText(output_img, str(digit), (x0 + 3, y0 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 128, 0), 2)
+        # Draw bounding box and recognized digit on the output image
+        cv2.rectangle(output_img, (x0, y0), (x1, y1), (0, 255, 0), 2)
+        cv2.putText(output_img, str(digit), (x0 + 3, y0 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
+
     return digits
