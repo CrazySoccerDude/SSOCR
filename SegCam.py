@@ -25,28 +25,19 @@ H_W_Ratio = 4  # Default ratio
 
 
 def select_roi(event, x, y, flags, param):
-    """
-    Mouse callback function to select ROI.
-    """
-    global ref_point, cropping, roi_selected, selected_roi_img, frame_copy
-
+    global ref_point, cropping, roi_selected
     if event == cv2.EVENT_LBUTTONDOWN:
         ref_point = [(x, y)]
         cropping = True
         roi_selected = False
-        selected_roi_img = None
-
     elif event == cv2.EVENT_MOUSEMOVE:
         if cropping:
             temp_frame = frame_copy.copy()
             cv2.rectangle(temp_frame, ref_point[0], (x, y), (0, 255, 0), 2)
             cv2.imshow("Frame", temp_frame)
-
     elif event == cv2.EVENT_LBUTTONUP:
         ref_point.append((x, y))
         cropping = False
-        roi_selected = True
-
         # Ensure the points are in the correct order (top-left, bottom-right)
         x1, y1 = ref_point[0]
         x2, y2 = ref_point[1]
@@ -54,70 +45,17 @@ def select_roi(event, x, y, flags, param):
         roi_y = min(y1, y2)
         roi_w = abs(x1 - x2)
         roi_h = abs(y1 - y2)
-
-        # Ensure ROI coordinates are within frame boundaries
         h, w = frame_copy.shape[:2]
         roi_x = max(0, roi_x)
         roi_y = max(0, roi_y)
         roi_w = min(w - roi_x, roi_w)
         roi_h = min(h - roi_y, roi_h)
-        
         ref_point = [(roi_x, roi_y), (roi_x + roi_w, roi_y + roi_h)]
-
         if roi_w > 0 and roi_h > 0:
-            selected_roi_img = frame_copy[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w].copy()
-            
-            # Magnify the selected_roi_img itself
-            zoom_factor = 5
-            zoomed_width = int(selected_roi_img.shape[1] * zoom_factor)
-            zoomed_height = int(selected_roi_img.shape[0] * zoom_factor)
-
-            if zoomed_width > 0 and zoomed_height > 0:
-                selected_roi_img = cv2.resize(selected_roi_img, (zoomed_width, zoomed_height), interpolation=cv2.INTER_LINEAR)
-            else:
-                print("Cannot magnify ROI to zero dimensions. Using original size.")
-
-            cv2.imshow("Selected ROI", selected_roi_img) # Now shows magnified ROI
-
-            # Process the ROI using ssocr_lib and display results
-            # gray_roi will also be based on the magnified selected_roi_img
-            gray_roi = cv2.cvtColor(selected_roi_img, cv2.COLOR_BGR2GRAY)
-            
-            # Preprocess the ROI and show intermediate steps
-            # The threshold value (e.g., 10) might need tuning
-            # processed_roi will be magnified
-            processed_roi = preprocess(gray_roi, threshold=10, show=True) 
-            
-            # Find digit positions in the processed ROI
-            # The reserved_threshold value (e.g., 5) might need tuning
-            # Note: find_digits_positions may raise an AssertionError if no digits are found
-            # Positions will be relative to the magnified processed_roi
-            try:
-                digits_positions = find_digits_positions(processed_roi.copy(), H_threshold = 20, V_threshold = 20)
-            except AssertionError as e:
-                print(f"Error finding digits: {e}")
-                digits_positions = [] # Continue without drawing boxes if assertion fails
-
-            # Draw bounding boxes on a copy of the selected ROI
-            # roi_with_boxes will be a magnified image
-            roi_with_boxes = selected_roi_img.copy()
-            if digits_positions:
-                for pos in digits_positions:
-                    # pos is expected to be [(x1, y1), (x2, y2)]
-                    # These coordinates are for the magnified image
-                    pt1 = (pos[0][0], pos[0][1])
-                    pt2 = (pos[1][0], pos[1][1])
-                    cv2.rectangle(roi_with_boxes, pt1, pt2, (0, 255, 0), 1) # Thickness might need adjustment for magnified view
-            
-            cv2.imshow("Detected Digits in ROI", roi_with_boxes) # Now shows magnified ROI with boxes
+            roi_selected = True
         else:
-            roi_selected = False # Invalid ROI
+            roi_selected = False
             print("Invalid ROI selected (width or height is zero). Please try again.")
-
-        # Draw the final ROI on the main frame
-        final_frame = frame_copy.copy()
-        cv2.rectangle(final_frame, ref_point[0], ref_point[1], (0, 0, 255), 2)
-        cv2.imshow("Frame", final_frame)
 
 
 def apply_time_averaging_filter(processed_roi):
@@ -138,9 +76,9 @@ def apply_time_averaging_filter(processed_roi):
     return averaged_frame
 
 def main():
-    global frame_copy, roi_selected, selected_roi_img, ref_point, H_threshold, V_threshold, frame_buffer, average_frame_count, binarization_threshold, H_W_Ratio
+    global frame_copy, roi_selected, ref_point, H_threshold, V_threshold, frame_buffer, average_frame_count, binarization_threshold, H_W_Ratio
 
-    cap = cv2.VideoCapture(0)  # 0 for default camera
+    cap = cv2.VideoCapture(2)  # 0 for default camera
 
     if not cap.isOpened():
         print("Error: Could not open video stream.")
@@ -153,7 +91,7 @@ def main():
     print("Use 'h/H' to decrease/increase H_threshold, 'v/V' to decrease/increase V_threshold.")
     print("Use 'n/N' to decrease/increase the number of frames for averaging.")
     print("Use 't/T' to decrease/increase the binarization threshold.")
-    print("Use 'r/R' to decrease/increase H_W_Ratio.")
+    print("Use 'w/W' to decrease/increase H_W_Ratio.")
 
     while True:
         ret, frame = cap.read()
@@ -198,20 +136,19 @@ def main():
 
                 roi_with_boxes = cv2.cvtColor(magnified_roi, cv2.COLOR_GRAY2BGR)  # Convert to BGR for visualization
 
-                # Recognize digits using area method
-                #recognized_digits = recognize_digits_area_method(digits_positions, roi_with_boxes, processed_roi)
-                #print(f"Recognized Digits: {''.join(map(str, recognized_digits))}")
+                # Draw bounding boxes on the ROI
+                for pos in digits_positions:
+                    pt1 = (pos[0][0], pos[0][1])
+                    pt2 = (pos[1][0], pos[1][1])
+                    cv2.rectangle(roi_with_boxes, pt1, pt2, (0, 255, 0), 1)
 
-                # Recognize digits using line method and display results
-                try:
-                    line_digits_positions = find_digits_positions(processed_roi.copy(), H_threshold=H_threshold, V_threshold=V_threshold)
-                    line_recognized_digits = recognize_digits_line_method(line_digits_positions, roi_with_boxes, processed_roi)
-                    print(f"Line Method Recognized Digits: {''.join(map(str, line_recognized_digits))}")
-                except AssertionError:
-                    line_recognized_digits = []
-                    print("Line Method: No digits detected.")
+                # 识别数字并在ROI上显示
+                if digits_positions:
+                    digits = recognize_digits_area_method(digits_positions, roi_with_boxes, processed_roi)
+                    # 在ROI左上角显示识别结果
+                    cv2.putText(roi_with_boxes, f"识别: {''.join([str(d) for d in digits])}", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,255), 2)
 
-                # Display the processed ROI with recognized digits
+                # Display the processed ROI with bounding boxes dynamically
                 cv2.imshow("Selected ROI", roi_with_boxes)
 
                 # Display intermediate steps for debugging
@@ -240,8 +177,11 @@ def main():
                 cv2.destroyWindow("Processed ROI")
             print("ROI reset.")
         elif key == ord('s'):  # Save ROI
-            if roi_selected and selected_roi_img is not None:
-                cv2.imwrite("selected_roi.png", selected_roi_img)
+            if roi_selected and len(ref_point) == 2:
+                x1, y1 = ref_point[0]
+                x2, y2 = ref_point[1]
+                roi_img = frame_copy[y1:y2, x1:x2]
+                cv2.imwrite("selected_roi.png", roi_img)
                 print(f"ROI saved as selected_roi.png. Coordinates: {ref_point}")
             else:
                 print("No ROI selected to save.")

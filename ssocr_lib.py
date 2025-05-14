@@ -23,16 +23,17 @@ arc_tan_theta = 6.0  # 数码管倾斜角度
 
 
 def preprocess(img, threshold, show=False, kernel_size=(5, 5)):
+    # 拉伸对比度
+    img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
     # 直方图局部均衡化
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(6, 6))
     img = clahe.apply(img)
     # 自适应阈值二值化
-    dst = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 127, threshold)
+    dst = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, threshold)
     # 闭运算开运算
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, kernel_size)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, kernel_size)
     dst = cv2.morphologyEx(dst, cv2.MORPH_CLOSE, kernel)
     dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel)
-
     if show:
         cv2.imshow('equlizeHist', img)
         cv2.imshow('threshold', dst)
@@ -64,32 +65,33 @@ def helper_extract(one_d_array, threshold=20):
     return res
 
 
-def find_digits_positions(img, H_threshold=20, V_threshold=20):
-    """
-    Use a continuous algorithm to find digit positions in the image.
-    """
+def find_digits_positions(img, H_threshold=20, V_threshold=20, min_w=8, min_h=16, max_w=200, max_h=200):
     digits_positions = []
-    
-    # Sum pixel intensities along the horizontal axis
     horizontal_sum = np.sum(img, axis=0)
     horizontal_regions = helper_extract(horizontal_sum, threshold=H_threshold)
-
-    # Sum pixel intensities along the vertical axis
     vertical_sum = np.sum(img, axis=1)
     vertical_regions = helper_extract(vertical_sum, threshold=V_threshold)
-
-    # Ensure vertical regions are continuous
     if len(vertical_regions) > 1:
         vertical_regions = [(vertical_regions[0][0], vertical_regions[-1][1])]
-
-    # Combine horizontal and vertical regions to form digit bounding boxes
     for h_region in horizontal_regions:
         for v_region in vertical_regions:
-            digits_positions.append([(h_region[0], v_region[0]), (h_region[1], v_region[1])])
-
-    # Ensure digit positions are valid
+            x0, x1 = h_region
+            y0, y1 = v_region
+            w = x1 - x0
+            h = y1 - y0
+            if w >= min_w and h >= min_h and w <= max_w and h <= max_h:
+                digits_positions.append([(x0, y0), (x1, y1)])
+    # 若找不到，尝试放宽阈值
+    if len(digits_positions) == 0:
+        for h_region in horizontal_regions:
+            for v_region in vertical_regions:
+                x0, x1 = h_region
+                y0, y1 = v_region
+                w = x1 - x0
+                h = y1 - y0
+                if w > 2 and h > 4:
+                    digits_positions.append([(x0, y0), (x1, y1)])
     assert len(digits_positions) > 0, "Failed to find digits' positions using continuous algorithm."
-
     return digits_positions
 
 
