@@ -144,7 +144,7 @@ def main():
 
                 # 识别数字并在ROI上显示
                 if digits_positions:
-                    digits = recognize_digits_area_method(digits_positions, roi_with_boxes, processed_roi)
+                    digits = recognize_digits_line_method(digits_positions, roi_with_boxes, processed_roi)
                     # 在ROI左上角显示识别结果
                     cv2.putText(roi_with_boxes, f"识别: {''.join([str(d) for d in digits])}", (5, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,0,255), 2)
 
@@ -185,34 +185,34 @@ def main():
                 print(f"ROI saved as selected_roi.png. Coordinates: {ref_point}")
             else:
                 print("No ROI selected to save.")
-        elif key == ord('h'):  # Decrease H_threshold
+        elif key == ord('j'):  # Decrease H_threshold
             H_threshold = max(1, H_threshold - 1)
             print(f"H_threshold decreased to {H_threshold}")
-        elif key == ord('H'):  # Increase H_threshold
+        elif key == ord('k'):  # Increase H_threshold
             H_threshold += 1
             print(f"H_threshold increased to {H_threshold}")
-        elif key == ord('v'):  # Decrease V_threshold
+        elif key == ord('n'):  # Decrease V_threshold
             V_threshold = max(1, V_threshold - 1)
             print(f"V_threshold decreased to {V_threshold}")
-        elif key == ord('V'):  # Increase V_threshold
+        elif key == ord('m'):  # Increase V_threshold
             V_threshold += 1
             print(f"V_threshold increased to {V_threshold}")
-        elif key == ord('n'):  # Decrease averaging frame count
+        elif key == ord('u'):  # Decrease averaging frame count
             average_frame_count = max(1, average_frame_count - 1)
             print(f"Averaging Frames decreased to {average_frame_count}")
-        elif key == ord('N'):  # Increase averaging frame count
+        elif key == ord('i'):  # Increase averaging frame count
             average_frame_count += 1
             print(f"Averaging Frames increased to {average_frame_count}")
-        elif key == ord('t'):  # Decrease binarization threshold
+        elif key == ord('y'):  # Decrease binarization threshold
             binarization_threshold = max(1, binarization_threshold - 1)
             print(f"Binarization Threshold decreased to {binarization_threshold}")
-        elif key == ord('T'):  # Increase binarization threshold
+        elif key == ord('t'):  # Increase binarization threshold
             binarization_threshold += 1
             print(f"Binarization Threshold increased to {binarization_threshold}")
-        elif key == ord('w'):  # Decrease H_W_Ratio
+        elif key == ord('o'):  # Decrease H_W_Ratio
             H_W_Ratio = max(0.1, H_W_Ratio - 0.1)
             print(f"H_W_Ratio decreased to {H_W_Ratio:.1f}")
-        elif key == ord('W'):  # Increase H_W_Ratio
+        elif key == ord('p'):  # Increase H_W_Ratio
             H_W_Ratio += 0.1
             print(f"H_W_Ratio increased to {H_W_Ratio:.1f}")
 
